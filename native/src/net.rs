@@ -174,33 +174,28 @@ impl Net {
                 rt.block_on(async move {
                     let sh = s.clone();
 
-                    // --- 监听 ---
-                    match TcpListener::bind(("0.0.0.0", port)).await {
-                        Ok(listener) => {
-                            sh.emit(Evt::Link(
-                                LinkState::Listening,
-                                format!("正在监听 {port}"),
-                            ));
+                    // --- 监听：IPv4 与 IPv6 都要绑 ---
+                    let mut bound: Vec<(&str, TcpListener)> = Vec::new();
+                    if let Ok(l) = TcpListener::bind(("0.0.0.0", port)).await {
+                        bound.push(("0.0.0.0", l));
+                    }
+                    if let Ok(l) = TcpListener::bind(("::", port)).await {
+                        bound.push(("[::]", l));
+                    }
+
+                    if bound.is_empty() {
+                        sh.emit(Evt::Err(format!(
+                            "{port} 端口不可用，只能主动连接对方"
+                        )));
+                    } else {
+                        let names: Vec<&str> = bound.iter().map(|(n, _)| *n).collect();
+                        sh.emit(Evt::Link(
+                            LinkState::Listening,
+                            format!("{}:{port}", names.join(" + ")),
+                        ));
+                        for (_, listener) in bound {
                             let sh2 = sh.clone();
-                            tokio::spawn(async move {
-                                while let Ok((stream, addr)) = listener.accept().await {
-                                    let sh3 = sh2.clone();
-                                    tokio::spawn(async move {
-                                        if let Ok(ws) = accept_async(stream).await {
-                                            sh3.emit(Evt::Link(
-                                                LinkState::Online,
-                                                addr.to_string(),
-                                            ));
-                                            session(ws, sh3).await;
-                                        }
-                                    });
-                                }
-                            });
-                        }
-                        Err(e) => {
-                            sh.emit(Evt::Err(format!(
-                                "{port} 端口不可用（{e}），只能主动连接对方"
-                            )));
+                            tokio::spawn(async move { accept_loop(listener, sh2).await });
                         }
                     }
 
@@ -292,6 +287,21 @@ pub enum Cmd {
 }
 
 // ---------------------------------------------------------------- 会话
+
+async fn accept_loop(listener: TcpListener, sh: Arc<Shared>) {
+    loop {
+        let Ok((stream, addr)) = listener.accept().await else {
+            continue;
+        };
+        let sh2 = sh.clone();
+        tokio::spawn(async move {
+            if let Ok(ws) = accept_async(stream).await {
+                sh2.emit(Evt::Link(LinkState::Online, addr.to_string()));
+                session(ws, sh2).await;
+            }
+        });
+    }
+}
 
 async fn session<S>(ws: WebSocketStream<S>, sh: Arc<Shared>)
 where

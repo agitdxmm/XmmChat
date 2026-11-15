@@ -70,26 +70,61 @@ fn hub_of(app: &AppHandle) -> Arc<Hub> {
     Arc::clone(&st)
 }
 
-/// 服务端：监听端口，来一个接一个（只允许单条链路，先到先得）。
+/// 服务端：同时监听 IPv4 与 IPv6。
+///
+/// 只绑 `0.0.0.0` 会漏掉所有 IPv6 客户端 —— 局域网里 `2408:...` 这类地址
+/// 在双栈网络下是常态，漏掉就等于"对方看得见地址却连不进来"。
+///
+/// Windows 默认 `IPV6_V6ONLY=1`，两个地址能同时绑；
+/// Linux/Android 默认双栈，绑 `[::]` 已覆盖 IPv4，此时 v4 的绑定会失败，忽略即可。
 pub async fn serve(app: AppHandle, port: u16) -> Result<(), String> {
-    let listener = TcpListener::bind(("0.0.0.0", port))
-        .await
-        .map_err(|e| format!("端口 {port} 监听失败：{e}"))?;
+    let mut bound: Vec<(&'static str, TcpListener)> = Vec::new();
+    let mut errs: Vec<String> = Vec::new();
 
-    emit_link(&app, "listening", &format!("0.0.0.0:{port}"), "host", "");
+    match TcpListener::bind(("0.0.0.0", port)).await {
+        Ok(l) => bound.push(("0.0.0.0", l)),
+        Err(e) => errs.push(format!("IPv4 {e}")),
+    }
 
-    loop {
-        let (stream, addr) = match listener.accept().await {
-            Ok(v) => v,
-            Err(_) => continue,
-        };
+    match TcpListener::bind(("::", port)).await {
+        Ok(l) => bound.push(("[::]", l)),
+        Err(e) => errs.push(format!("IPv6 {e}")),
+    }
+
+    if bound.is_empty() {
+        return Err(format!("端口 {port} 监听失败：{}", errs.join("；")));
+    }
+
+    let labels: Vec<&str> = bound.iter().map(|(l, _)| *l).collect();
+    emit_link(
+        &app,
+        "listening",
+        &format!("{}:{port}", labels.join(" + ")),
+        "host",
+        "",
+    );
+
+    for (_label, listener) in bound {
         let app2 = app.clone();
         tauri::async_runtime::spawn(async move {
-            if let Err(e) = run_server_conn(app2.clone(), stream, addr.to_string()).await {
-                emit_link(&app2, "error", &addr.to_string(), "host", &e);
+            loop {
+                let (stream, addr) = match listener.accept().await {
+                    Ok(v) => v,
+                    Err(_) => continue,
+                };
+                let app3 = app2.clone();
+                tauri::async_runtime::spawn(async move {
+                    if let Err(e) = run_server_conn(app3.clone(), stream, addr.to_string()).await {
+                        emit_link(&app3, "error", &addr.to_string(), "host", &e);
+                    }
+                });
             }
         });
     }
+
+    // accept 循环都在后台任务里，这里挂住不让 serve 返回
+    std::future::pending::<()>().await;
+    Ok(())
 }
 
 async fn run_server_conn(app: AppHandle, stream: TcpStream, peer: String) -> Result<(), String> {

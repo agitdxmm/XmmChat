@@ -1,0 +1,26 @@
+# ---- 构建产物 ----
+node_modules/
+dist/
+src-tauri/target/
+src-tauri/gen/
+native/target/
+release/
+*.idsig
+
+# ---- 签名材料：绝对不要提交 ----
+*.keystore
+*.jks
+*.pfx
+*.p12
+*.pass
+*.key
+
+# 公钥证书不含私钥，但默认也不提交，避免误把它当成可信来源
+*.cer
+
+# ---- 系统 / 编辑器 ----
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+*.log

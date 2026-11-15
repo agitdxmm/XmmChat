@@ -1,0 +1,22 @@
+# 统一换行符，避免 Windows/Linux 之间反复产生整文件 diff
+* text=auto eol=lf
+
+# 二进制资源，别让 git 尝试做文本 diff
+*.png  binary
+*.ico  binary
+*.jpg  binary
+*.jpeg binary
+*.webp binary
+*.ttf  binary
+*.ttc  binary
+*.otf  binary
+*.so   binary
+*.dll  binary
+*.exe  binary
+*.apk  binary
+*.zip  binary
+*.jar  binary
+
+# 生成物不参与语言统计
+dist/**     linguist-generated
+Cargo.lock  linguist-generated

@@ -1,0 +1,46 @@
+[package]
+name = "xmmchat"
+version = "1.0.0"
+description = "咪的天 — 点对点即时通信"
+authors = ["小喵咪"]
+edition = "2021"
+rust-version = "1.77.2"
+
+[lib]
+name = "xmmchat_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+tauri = { version = "2", features = [] }
+tauri-plugin-dialog = "2"
+tauri-plugin-opener = "2"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+tokio = { version = "1", features = ["rt-multi-thread", "net", "sync", "macros", "time", "io-util"] }
+tokio-tungstenite = { version = "0.24", default-features = false, features = ["connect", "handshake"] }
+futures-util = { version = "0.3", default-features = false, features = ["sink", "std"] }
+base64 = "0.22"
+local-ip-address = "0.6"
+flate2 = "1"
+
+[target.'cfg(windows)'.dependencies]
+windows-sys = { version = "0.59", features = [
+    "Win32_Foundation",
+    "Win32_Graphics_Gdi",
+] }
+
+# 依赖树修正：tauri-build 会给 schemars 0.8 开 preserve_order，
+# 走 indexmap 1.x；而 indexmap 1.9.3 未声明 default= ["std"]，
+# 其 build.rs 会探测 sysroot，探测失败就不发 has_std，
+# 导致 IndexMap<K,V,S> 丢默认类型参数、schemars 编译失败。
+# 显式开 std 特性让它走 CARGO_FEATURE_STD 分支，跳过探测。
+indexmap = { version = "1.9", features = ["std"] }
+
+[profile.release]
+codegen-units = 1
+lto = true
+opt-level = "s"
+strip = true

@@ -175,12 +175,16 @@ impl Net {
                     let sh = s.clone();
 
                     // --- 监听：IPv4 与 IPv6 都要绑 ---
+                    // bind(0.0.0.0) 永远是纯 IPv4 socket，bindv6only=0 也不会让它接管 v6；
+                    // 双栈只来自 bind([::])。
+                    // 顺序必须 v6 优先：Linux 上 [::] 是双栈会占住 v4 端口，
+                    // 若先绑 0.0.0.0，再绑 [::] 会 EADDRINUSE，结果只剩 v4。
                     let mut bound: Vec<(&str, TcpListener)> = Vec::new();
-                    if let Ok(l) = TcpListener::bind(("0.0.0.0", port)).await {
-                        bound.push(("0.0.0.0", l));
-                    }
                     if let Ok(l) = TcpListener::bind(("::", port)).await {
                         bound.push(("[::]", l));
+                    }
+                    if let Ok(l) = TcpListener::bind(("0.0.0.0", port)).await {
+                        bound.push(("0.0.0.0", l));
                     }
 
                     if bound.is_empty() {

@@ -72,23 +72,35 @@ fn hub_of(app: &AppHandle) -> Arc<Hub> {
 
 /// 服务端：同时监听 IPv4 与 IPv6。
 ///
-/// 只绑 `0.0.0.0` 会漏掉所有 IPv6 客户端 —— 局域网里 `2408:...` 这类地址
-/// 在双栈网络下是常态，漏掉就等于"对方看得见地址却连不进来"。
+/// `bind(0.0.0.0)` 拿到的永远是**纯 IPv4** socket —— 即使系统 `bindv6only=0`，
+/// 内核也不会让它接管 v6 流量。所以只绑它，界面里那些 `2408:...` 地址
+/// 对方看得见、却连不进来。
 ///
-/// Windows 默认 `IPV6_V6ONLY=1`，两个地址能同时绑；
-/// Linux/Android 默认双栈，绑 `[::]` 已覆盖 IPv4，此时 v4 的绑定会失败，忽略即可。
+/// 双栈能力只来自 `bind([::])`：
+/// - Windows 默认 `IPV6_V6ONLY=1` → v4/v6 是两个独立 socket，都能绑成功，各管各的；
+/// - Linux/Android 默认 `IPV6_V6ONLY=0` → `[::]` 本身就能收 v4（v4-mapped 地址），
+///   它已经把端口占住，随后 `0.0.0.0` 会 EADDRINUSE，跳过即可。
+///
+/// 两种平台最终都能覆盖 v4 + v6，区别只是背后是 1 个 socket 还是 2 个。
+///
+/// **顺序很重要，必须先绑 `[::]`**：
+/// - Linux 上 `[::]` 是双栈，会同时占住 v4 端口。若先绑了 `0.0.0.0`，
+///   再绑 `[::]` 就会 EADDRINUSE —— 结果只剩 v4，v6 又漏了。
+/// - Windows 上两者互不干扰，先后无所谓，但统一的顺序更好维护。
 pub async fn serve(app: AppHandle, port: u16) -> Result<(), String> {
     let mut bound: Vec<(&'static str, TcpListener)> = Vec::new();
     let mut errs: Vec<String> = Vec::new();
 
-    match TcpListener::bind(("0.0.0.0", port)).await {
-        Ok(l) => bound.push(("0.0.0.0", l)),
-        Err(e) => errs.push(format!("IPv4 {e}")),
-    }
-
+    // 先 v6（Linux 上是双栈，会顺手覆盖 v4）
     match TcpListener::bind(("::", port)).await {
         Ok(l) => bound.push(("[::]", l)),
         Err(e) => errs.push(format!("IPv6 {e}")),
+    }
+
+    // 再 v4；如果上面已经双栈接管，这里会 EADDRINUSE，跳过即可
+    match TcpListener::bind(("0.0.0.0", port)).await {
+        Ok(l) => bound.push(("0.0.0.0", l)),
+        Err(e) => errs.push(format!("IPv4 {e}")),
     }
 
     if bound.is_empty() {

@@ -91,7 +91,7 @@ impl App {
         cc.egui_ctx.set_pixels_per_point(1.25);
 
         Self {
-            state: ui::State::new(),
+            state: ui::State::new(&cc.egui_ctx),
             backdrop_done: false,
         }
     }

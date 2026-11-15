@@ -9,19 +9,19 @@
 
 | 项 | 值 |
 |---|---|
-| 主题（Subject） | `CN=爱玩的小喵咪, OU=咪的天, O=咪的天, L=Beijing, S=Beijing, C=CN` |
-| 证书指纹（SHA-1） | `957021F6C6B010B2A719502E9DA01E60A98BFD32` |
+| 主题（Subject） | `CN=爱玩的小喵咪, OU=咪的天, O=咪的天, C=CN` |
+| 证书指纹（SHA-1） | `7E5108D106C4EB37F8E5D9828D06E0772BA84458` |
 | 有效期 | 10000 天 |
 | 类型 | 自签名（Self-signed） |
+
+> 未填写 `L`（城市）与 `ST`（省份）—— 这两项是可选的，留空不影响签名有效性。
 
 Android 端证书（APK 内）：
 
 ```
-DN       : CN=爱玩的小喵咪, OU=咪的天, O=咪的天, L=Beijing, ST=Beijing, C=CN
-SHA-256  : e484b693dcf33288b4cb26999330e9012129adfb0a3f12fc2110ccbc63f51a95
+DN       : CN=爱玩的小喵咪, OU=咪的天, O=咪的天, C=CN
+SHA-256  : d86d2b7af46882c3fa49f8dbf329e10a6f242241e4895fbcbd486ab5fe8c6635
 ```
-
-> Windows 的 DN 渲染会把 `ST` 显示成 `S`，两者是同一个字段（stateOrProvinceName），不是错误。
 
 ## 二、密钥放在哪
 

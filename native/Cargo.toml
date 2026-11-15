@@ -5,7 +5,7 @@ edition = "2021"
 description = "咪的天 原生版 —— Rust + egui，零 WebView"
 
 [dependencies]
-eframe = { version = "0.29", default-features = false, features = ["glow", "default_fonts", "wayland", "x11"] }
+eframe = { version = "0.29", default-features = false, features = ["glow", "default_fonts"] }
 egui = "0.29"
 tokio = { version = "1", features = ["rt-multi-thread", "net", "sync", "time", "macros", "fs", "io-util"] }
 tokio-tungstenite = "0.24"

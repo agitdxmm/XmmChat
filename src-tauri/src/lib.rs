@@ -47,6 +47,13 @@ fn fit_window(win: &tauri::WebviewWindow) {
     }
 }
 
+/// 桌面端入口。
+///
+/// `mobile_entry_point` 是 Android/iOS 的 JNI 入口，只在移动端编译时展开，
+/// 会生成 `Java_<包名>_Rust_onCreate` 之类的符号。
+/// 少了它，.so 里就一个导出符号都没有，安卓一启动就是
+/// `UnsatisfiedLinkError: No implementation found for ... Rust.onCreate`。
+#[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())

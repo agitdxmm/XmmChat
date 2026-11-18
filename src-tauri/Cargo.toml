@@ -40,7 +40,12 @@ windows-sys = { version = "0.59", features = [
 indexmap = { version = "1.9", features = ["std"] }
 
 [profile.release]
-codegen-units = 1
-lto = true
+# 4 核笔记本上 fat LTO 会长时间单线程停住（CPU 0%，看起来像卡死）。
+# thin LTO 效果接近，但编译快数倍，内存也小得多。
+codegen-units = 4
+lto = "thin"
 opt-level = "s"
-strip = true
+# 只能删调试信息，不能删符号表。
+# strip = true 等价于 strip = "symbols"，会把动态符号表也清掉，
+# 导致 Android 上 JNI 找不到 Java_com_xmm_chat_Rust_onCreate 而崩溃。
+strip = "debuginfo"
